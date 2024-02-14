@@ -1,0 +1,83 @@
+// @version=5
+// @author RedN00ws
+// 
+// List of my public indicators: http://bit.ly/1LQaPK8 
+// List of my app-store indicators: http://blog.tradingview.com/?p=970 
+//  
+// 
+// This tool takes the avarage of the last [700] ImpulseMACD [md] below 0 as a reference line [mda]
+// Only when below the reference line [mda] a buy order will be set as soon as the 
+// ImpulseMACD [md] drosses over the ImpulseMACDSignal [sb]
+//
+
+indicator("Impulse MACD [redN00ws]", overlay = false)
+
+//=> Input Fields
+ia = input(700, title="Take average of # ImpulseMACds below 0")
+lengthMA = input(34, title="MA Length")
+lengthSignal = input(9, title="Signal Length")
+
+//=> Calculations
+calc_ema(src, length) =>
+    ta.ema(src, length)
+
+calc_zlema(src, length) =>
+    ema1 = calc_ema(src, length)
+    ema2 = calc_ema(ema1, length)
+    d = ema1 - ema2
+    ema1 + d
+
+src = hlc3
+hi = ta.sma(high, lengthMA)
+lo = ta.sma(low, lengthMA)
+mi = calc_zlema(src, lengthMA)
+
+md = (mi > hi) ? (mi - hi) : (mi < lo) ? (mi - lo) : 0
+sb = ta.sma(md, lengthSignal)
+sh = md - sb
+mdc = src > mi ? src > hi ? color.lime : color.green : src < lo ? color.red : color.orange
+
+
+// Avarage ImpulseMACD below 0 to know best buy position
+md_v=(md<0) ? md : na
+mda = ta.sma(md_v, ia)
+
+//=> Drawings
+// Calculate MACD
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+
+// Set the colors for the background boxes
+upTrendColor = color.new(color.green, 90) // Light green for up trend
+downTrendColor = color.new(color.red, 90) // Light red for down trend
+neutralColor = color.new(color.yellow, 90) // Light yellow for neutral trend
+
+// Plot Impulse Histo in the upper row (row = 1)
+plot(md, title="ImpulseHisto", color=color.new(color.blue, 70), linewidth=2, style=plot.style_histogram, offset = -1 )
+
+// Plot Impulse MACD CD Signal in the middle row (row = 0)
+plot(sb, title="ImpulseMACDCDSignal", color=color.new(color.maroon, 70), linewidth=2, style=plot.style_histogram)
+
+// Plot Zero Line in the lower row (row = -1)
+plot(0, title="Zero Line", color=color.rgb(0, 0, 0), linewidth=1, offset = 1)
+
+// Plot MACD lines
+plot(macdLine, title="MACD Line", color=color.blue, linewidth=2)
+plot(signalLine, title="Signal Line", color=color.orange, linewidth=2)
+
+// Enable bar colors option
+ebc = input(false, title="Enable bar colors")
+barcolor(ebc ? mdc : na)
+
+// Find crossover points
+crossoverUp = ta.crossover(macdLine, signalLine)
+crossunderDown = ta.crossunder(macdLine, signalLine)
+
+// Plot green line indicating Average MACD below 0 for [ia] candles
+plot(mda, color=color.green, linewidth=1, title="AvarageIMACDbelow0", style=plot.style_line)
+
+// Buy indicator
+buy = macdLine < mda and crossoverUp
+plotshape(buy,  title = "Buy",  text = 'Buy',  style = shape.labelup,  color=color.green, textcolor=color.white, size = size.tiny, location = location.top)
+
+// alert
+alertcondition(buy, title="BUY ALERT", message = "MACD crosses Signal from below MACD-average")
